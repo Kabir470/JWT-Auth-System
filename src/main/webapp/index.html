@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JWT Demo</title>
+  <style>
+    body { font-family: sans-serif; max-width: 400px; margin: 60px auto; padding: 0 20px; }
+    input { display: block; width: 100%; padding: 8px; margin: 8px 0; box-sizing: border-box; }
+    button { padding: 10px 20px; cursor: pointer; }
+    #output { margin-top: 20px; padding: 12px; background: #f4f4f4;
+              border-radius: 6px; white-space: pre-wrap; font-family: monospace; font-size: 13px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN FORM -->
+  <div id="login-section">
+    <h2>Login</h2>
+    <input id="username" type="text"     placeholder="username (try: alice)" />
+    <input id="password" type="password" placeholder="password (try: pass123)" />
+    <button onclick="login()">Login</button>
+  </div>
+
+  <!-- AFTER LOGIN -->
+  <div id="app-section" class="hidden">
+    <h2>Logged in ✓</h2>
+    <button onclick="getProfile()">Call protected /api/profile</button>
+    <button onclick="logout()" style="margin-left:10px">Logout</button>
+  </div>
+
+  <div id="output"></div>
+
+  <script>
+    // Store the token in a JS variable — NOT localStorage
+    // (localStorage is readable by any script on the page; memory is safer)
+    let token = null;
+
+    async function login() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      const resp = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await resp.json();
+
+      if (resp.ok) {
+        token = data.token;                          // save token in memory
+        show('Token received:\n' + token);
+        document.getElementById('login-section').classList.add('hidden');
+        document.getElementById('app-section').classList.remove('hidden');
+      } else {
+        show('Login failed: ' + data.error);
+      }
+    }
+
+    async function getProfile() {
+      // Send token in the Authorization header on every protected request
+      const resp = await fetch('/api/profile', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+
+      const data = await resp.json();
+      show(JSON.stringify(data, null, 2));
+    }
+
+    function logout() {
+      token = null;                                  // just wipe the variable
+      document.getElementById('login-section').classList.remove('hidden');
+      document.getElementById('app-section').classList.add('hidden');
+      show('Logged out. Token cleared from memory.');
+    }
+
+    function show(text) {
+      document.getElementById('output').textContent = text;
+    }
+  </script>
+
+</body>
+</html>
