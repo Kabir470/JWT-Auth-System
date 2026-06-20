@@ -33,24 +33,36 @@
   <div id="output"></div>
 
   <script>
-    // Store the token in a JS variable — NOT localStorage
-    // (localStorage is readable by any script on the page; memory is safer)
     let token = null;
+
+    // Picks up "jwt-demo" (or whatever the app is named) automatically
+    const BASE = '/' + window.location.pathname.split('/')[1];
 
     async function login() {
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
 
-      const resp = await fetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
+      let resp;
+      try {
+        resp = await fetch(BASE + '/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+      } catch (e) {
+        show('Network error — is Tomcat running?\n' + e.message);
+        return;
+      }
+
+      if (!isJson(resp)) {
+        show('Server error ' + resp.status + ' — check Tomcat logs.\n(Got HTML instead of JSON — likely a 404 or 500)');
+        return;
+      }
 
       const data = await resp.json();
 
       if (resp.ok) {
-        token = data.token;                          // save token in memory
+        token = data.token;
         show('Token received:\n' + token);
         document.getElementById('login-section').classList.add('hidden');
         document.getElementById('app-section').classList.remove('hidden');
@@ -60,17 +72,27 @@
     }
 
     async function getProfile() {
-      // Send token in the Authorization header on every protected request
-      const resp = await fetch('/api/profile', {
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
+      let resp;
+      try {
+        resp = await fetch(BASE + '/api/profile', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+      } catch (e) {
+        show('Network error:\n' + e.message);
+        return;
+      }
+
+      if (!isJson(resp)) {
+        show('Server error ' + resp.status + ' — check Tomcat logs.');
+        return;
+      }
 
       const data = await resp.json();
       show(JSON.stringify(data, null, 2));
     }
 
     function logout() {
-      token = null;                                  // just wipe the variable
+      token = null;
       document.getElementById('login-section').classList.remove('hidden');
       document.getElementById('app-section').classList.add('hidden');
       show('Logged out. Token cleared from memory.');
@@ -78,6 +100,12 @@
 
     function show(text) {
       document.getElementById('output').textContent = text;
+    }
+
+    // Returns true only if the response is actually JSON
+    function isJson(resp) {
+      const ct = resp.headers.get('content-type');
+      return ct && ct.includes('application/json');
     }
   </script>
 

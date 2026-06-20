@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JWT Demo</title>
+  <style>
+    body { font-family: sans-serif; max-width: 400px; margin: 60px auto; padding: 0 20px; }
+    input { display: block; width: 100%; padding: 8px; margin: 8px 0; box-sizing: border-box; }
+    button { padding: 10px 20px; cursor: pointer; }
+    #output { margin-top: 20px; padding: 12px; background: #f4f4f4;
+              border-radius: 6px; white-space: pre-wrap; font-family: monospace; font-size: 13px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN FORM -->
+  <div id="login-section">
+    <h2>Login</h2>
+    <input id="username" type="text"     placeholder="username (try: alice)" />
+    <input id="password" type="password" placeholder="password (try: pass123)" />
+    <button onclick="login()">Login</button>
+  </div>
+
+  <!-- AFTER LOGIN -->
+  <div id="app-section" class="hidden">
+    <h2>Logged in ✓</h2>
+    <button onclick="getProfile()">Call protected /api/profile</button>
+    <button onclick="logout()" style="margin-left:10px">Logout</button>
+  </div>
+
+  <div id="output"></div>
+
+  <script>
+    let token = null;
+
+    // Picks up "jwt-demo" (or whatever the app is named) automatically
+    const BASE = '/' + window.location.pathname.split('/')[1];
+
+    async function login() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      let resp;
+      try {
+        resp = await fetch(BASE + '/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+      } catch (e) {
+        show('Network error — is Tomcat running?\n' + e.message);
+        return;
+      }
+
+      if (!isJson(resp)) {
+        show('Server error ' + resp.status + ' — check Tomcat logs.\n(Got HTML instead of JSON — likely a 404 or 500)');
+        return;
+      }
+
+      const data = await resp.json();
+
+      if (resp.ok) {
+        token = data.token;
+        show('Token received:\n' + token);
+        document.getElementById('login-section').classList.add('hidden');
+        document.getElementById('app-section').classList.remove('hidden');
+      } else {
+        show('Login failed: ' + data.error);
+      }
+    }
+
+    async function getProfile() {
+      let resp;
+      try {
+        resp = await fetch(BASE + '/api/profile', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+      } catch (e) {
+        show('Network error:\n' + e.message);
+        return;
+      }
+
+      if (!isJson(resp)) {
+        show('Server error ' + resp.status + ' — check Tomcat logs.');
+        return;
+      }
+
+      const data = await resp.json();
+      show(JSON.stringify(data, null, 2));
+    }
+
+    function logout() {
+      token = null;
+      document.getElementById('login-section').classList.remove('hidden');
+      document.getElementById('app-section').classList.add('hidden');
+      show('Logged out. Token cleared from memory.');
+    }
+
+    function show(text) {
+      document.getElementById('output').textContent = text;
+    }
+
+    // Returns true only if the response is actually JSON
+    function isJson(resp) {
+      const ct = resp.headers.get('content-type');
+      return ct && ct.includes('application/json');
+    }
+  </script>
+
+</body>
+</html>
